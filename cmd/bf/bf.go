@@ -49,7 +49,7 @@ const data_size = 30000
 		}
 	}
 */
-const nprograms = 64
+const nprograms = 100
 const plen = 32
 
 func execute_rbf(program *[plen * 2]uint8) {
@@ -251,7 +251,7 @@ func fix(program *[plen]uint8) {
 }
 
 func main() {
-	rand.Seed(1)
+	//rand.Seed(1)
 	var programs [nprograms][plen]uint8
 	for i := 0; i < nprograms; i++ {
 		for j := 0; j < plen; j++ {
