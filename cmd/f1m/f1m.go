@@ -12,7 +12,7 @@ jump <1> -> <>              is also return                      0000 0006
 jnz <1>, <2>                jump to <1> % PLEN if <2> nz        0000 0007
 load <1> -> <1>                                                 0000 0008
 swap <1>, <2> -> <2>, <1>                                       0000 0009
-cheat <1>, <2> -> <1>            copy <1> to <1> + <2>          0000 000a
+cheat <1> -> <1>            copy <1> to <1> + PLEN              0000 000a
 */
 
 package main
@@ -48,23 +48,19 @@ const (
 
 const RLEN = PLEN * 2
 
-func run(program *[RLEN]uint8) {
+func run(program *[RLEN]uint8) int {
 	var stack [SLEN]uint8
 	sp := 0
 	pc := 0
 	iterations := 0
-outer:
 	for {
-		if iterations > 500 || pc >= RLEN || sp > SLEN || sp < 0 {
+		if iterations > 500 || pc >= RLEN || sp >= SLEN || sp < 0 {
 			break
 		}
 		iterations++
 		op := program[pc]
 		pc++
 		if op&PUSH == PUSH {
-			if sp >= SLEN {
-				break outer
-			}
 			stack[sp] = op & 0x7f
 			sp++
 			continue
@@ -74,72 +70,72 @@ outer:
 			sp--
 		case NOT:
 			if sp < 1 {
-				break outer
+				break
 			}
 			stack[sp-1] = ^stack[sp-1]
 		case ADD:
 			if sp--; sp < 1 {
-				break outer
+				break
 			}
 			stack[sp-1] += stack[sp]
 		case MUL:
 			if sp < 2 {
-				break outer
+				break
 			}
 			t := uint16(stack[sp-1]) * uint16(stack[sp-2])
 			stack[sp-1] = uint8(t >> 8)
 			stack[sp-2] = uint8(t & 0xff)
 		case STORE:
-			if sp -= 2; sp < 0 {
-				break outer
+			if sp -= 2; sp < 0 || stack[sp] >= RLEN {
+				break
 			}
 			program[stack[sp]%RLEN] = stack[sp+1]
 		case DUP:
-			if sp < 1 || sp >= SLEN {
-				break outer
+			if sp < 1 {
+				break
 			}
 			stack[sp] = stack[sp-1]
 			sp++
 		case JUMP:
-			if sp--; sp < 0 {
-				break outer
+			if sp--; sp < 0 || stack[sp] >= RLEN {
+				break
 			}
 			pc = int(stack[sp]) % RLEN
 		case JNZ:
 			if sp -= 2; sp < 0 {
-				break outer
+				break
 			}
 			if stack[sp] != 0 {
-				pc = int(stack[sp+1]) % RLEN
+				pc = int(stack[sp+1])
 			}
 		case LOAD:
-			if sp < 0 || sp >= SLEN {
-				break outer
+			if sp < 0 || stack[sp] >= RLEN {
+				break
 			}
 			stack[sp] = program[stack[sp]%RLEN]
 			sp++
 		case SWAP:
 			if sp < 2 {
-				break outer
+				break
 			}
 			t := stack[sp-1]
 			stack[sp-1] = stack[sp-2]
 			stack[sp-2] = t
 		case CHEAT:
-			if sp < 2 {
-				break outer
+			if sp < 1 {
+				break
 			}
-			program[(stack[sp-2]+stack[sp-1])%RLEN] = program[stack[sp-2]%RLEN]
-			sp--
+			program[(stack[sp-1]+PLEN)%RLEN] = program[stack[sp-1]%RLEN]
 		case CALL:
 			if sp < 1 {
-				break outer
+				break
 			}
 			t := stack[sp-1]
 			stack[sp-1] = uint8(pc)
 			pc = int(t) % RLEN
 		}
 	}
+	return iterations
 }
 
 func show(program [PLEN]uint8) {
@@ -222,7 +218,27 @@ func count_ops(program *[PLEN]uint8, count *[256]uint) {
 	}
 }
 
-const SHOW = 10_000_000
+func runner(doneq chan int, runq chan [2]uint32, programs *[NPROGRAMS][PLEN]uint8) {
+	var merged [PLEN * 2]uint8
+	for {
+		p := <-runq
+		p1 := p[0]
+		p2 := p[1]
+
+		copy(merged[:PLEN], programs[p1][:PLEN])
+		copy(merged[PLEN:], programs[p2][:PLEN])
+
+		//i := run(&merged)
+		run(&merged)
+
+		copy(programs[p1][:PLEN], merged[:PLEN])
+		copy(programs[p2][:PLEN], merged[PLEN:])
+
+		//doneq <- i
+	}
+}
+
+const SHOW = 1_000_000
 
 func main() {
 	f := fmt.Sprintf("log.%s", time.Now().Format("2006-01-02-15:04:05"))
@@ -232,6 +248,9 @@ func main() {
 	}
 	defer log.Close()
 
+	runq := make(chan [2]uint32, NPROGRAMS/2)
+	doneq := make(chan int, NPROGRAMS/2)
+
 	var programs [NPROGRAMS][PLEN]uint8
 	for i := 0; i < NPROGRAMS; i++ {
 		for j := 0; j < PLEN; j++ {
@@ -239,35 +258,42 @@ func main() {
 		}
 	}
 	showp(programs)
+
+	for i := 0; i < NPROGRAMS/2; i++ {
+		go runner(doneq, runq, &programs)
+	}
+
 	m := 0
 	n := 0
 	generation := 0
+	total_iterations := 0
 	start := time.Now()
 	for {
-		m++
-		generation++
+		m += NPROGRAMS / 2
+		generation += NPROGRAMS / 2
+		n += NPROGRAMS / 2
+
 		if m > MUTATION_RATE {
 			mutate(&programs[rand.Intn(NPROGRAMS)], &programs)
-			m = 0
+			m -= MUTATION_RATE
 		}
-		p1 := rand.Intn(NPROGRAMS)
-		p2 := rand.Intn(NPROGRAMS)
 
-		var merged [PLEN * 2]uint8
-		copy(merged[:PLEN], programs[p1][:PLEN])
-		copy(merged[PLEN:], programs[p2][:PLEN])
-
-		run(&merged)
-
-		copy(programs[p1][:PLEN], merged[:PLEN])
-		copy(programs[p2][:PLEN], merged[PLEN:])
-
-		if n++; n == SHOW {
+		//p := rand.Perm(NPROGRAMS)
+		for i := 0; i < NPROGRAMS; i += 2 {
+			runq <- [2]uint32{rand.Uint32n(NPROGRAMS), rand.Uint32n((NPROGRAMS))}
+		}
+		/*
+			for i := 0; i < NPROGRAMS; i += 2 {
+				total_iterations += <-doneq
+			}
+		*/
+		if n >= SHOW {
 			var count [256]uint
 			fmt.Print("\033c")
 			fmt.Printf("%d\n", generation)
 			showp(programs)
-			fmt.Printf("Time: %s\n", time.Since(start))
+			fmt.Printf("Iterations: %d Time: %s\n", total_iterations, time.Since(start))
+			total_iterations = 0
 			start = time.Now()
 
 			for i := 0; i < NPROGRAMS; i++ {
@@ -285,7 +311,7 @@ func main() {
 				fmt.Fprintf(log, "%d,", count[i])
 			}
 			log.WriteString("\n")
-			n = 0
+			n -= SHOW
 		}
 	}
 }
