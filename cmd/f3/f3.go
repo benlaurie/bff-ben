@@ -219,7 +219,7 @@ func main() {
 	if STRICT {
 		strict = "strict"
 	}
-	f := fmt.Sprintf("f3.log.%s.%s", strict, time.Now().Format("2006-01-02-15:04:05"))
+	f := fmt.Sprintf("logs/f3.log.%s.%s", strict, time.Now().Format("2006-01-02-15:04:05"))
 	log, err := os.Create(f)
 	if err != nil {
 		panic(err)
