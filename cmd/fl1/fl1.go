@@ -71,73 +71,67 @@ outer:
 		}
 		switch op {
 		case POP:
-			sp--
+			if sp > 0 {
+				sp--
+			}
 		case NOT:
-			if sp < 1 {
-				break outer
+			if sp > 0 {
+				stack[sp-1] = ^stack[sp-1]
 			}
-			stack[sp-1] = ^stack[sp-1]
 		case ADD:
-			if sp--; sp < 1 {
-				break outer
+			if sp > 1 {
+				stack[sp-2] += stack[sp-1]
+				sp--
 			}
-			stack[sp-1] += stack[sp]
 		case MUL:
-			if sp < 2 {
-				break outer
+			if sp > 1 {
+				t := uint16(stack[sp-1]) * uint16(stack[sp-2])
+				stack[sp-1] = uint8(t >> 8)
+				stack[sp-2] = uint8(t & 0xff)
 			}
-			t := uint16(stack[sp-1]) * uint16(stack[sp-2])
-			stack[sp-1] = uint8(t >> 8)
-			stack[sp-2] = uint8(t & 0xff)
 		case STORE:
-			if sp -= 2; sp < 0 {
-				break outer
+			if sp > 1 {
+				program[stack[sp-2]%RLEN] = stack[sp-1]
+				sp -= 2
 			}
-			program[stack[sp]%RLEN] = stack[sp+1]
 		case DUP:
-			if sp < 1 || sp >= SLEN {
-				break outer
+			if sp > 0 && sp < SLEN {
+				stack[sp] = stack[sp-1]
+				sp++
 			}
-			stack[sp] = stack[sp-1]
-			sp++
 		case JUMP:
-			if sp--; sp < 0 {
-				break outer
+			if sp > 0 {
+				pc = int(stack[sp-1]) % RLEN
+				sp--
 			}
-			pc = int(stack[sp]) % RLEN
 		case JNZ:
-			if sp -= 2; sp < 0 {
-				break outer
-			}
-			if stack[sp] != 0 {
-				pc = int(stack[sp+1]) % RLEN
+			if sp > 1 {
+				if stack[sp-1] != 0 {
+					pc = int(stack[sp-2]) % RLEN
+				}
+				sp -= 2
 			}
 		case LOAD:
-			if sp < 0 || sp >= SLEN {
-				break outer
+			if sp > 0 {
+				stack[sp-1] = program[stack[sp-1]%RLEN]
 			}
-			stack[sp] = program[stack[sp]%RLEN]
-			sp++
 		case SWAP:
-			if sp < 2 {
-				break outer
+			if sp > 1 {
+				t := stack[sp-1]
+				stack[sp-1] = stack[sp-2]
+				stack[sp-2] = t
 			}
-			t := stack[sp-1]
-			stack[sp-1] = stack[sp-2]
-			stack[sp-2] = t
 		case CHEAT:
-			if sp < 2 {
-				break outer
+			if sp > 1 {
+				program[(stack[sp-1]+stack[sp-2])%RLEN] = program[stack[sp-1]%RLEN]
 			}
-			program[(stack[sp-2]+stack[sp-1])%RLEN] = program[stack[sp-2]%RLEN]
-			sp--
 		case CALL:
-			if sp < 1 {
-				break outer
+			if sp > 0 {
+				t := stack[sp-1]
+				stack[sp-1] = uint8(pc)
+				pc = int(t) % RLEN
+				sp--
 			}
-			t := stack[sp-1]
-			stack[sp-1] = uint8(pc)
-			pc = int(t) % RLEN
 		}
 	}
 }

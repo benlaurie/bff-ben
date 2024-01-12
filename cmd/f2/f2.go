@@ -47,12 +47,16 @@ const (
 
 const ULEN = 8192
 const SLEN = 16
-const MUTATION_RATE = 6_400_000 * 32 / ULEN
+const MUTATION_RATE = 160_000_000 * 32 / ULEN
 const SHOW = 1_000_000
-const RUNNERS = 4
+const RUNNERS = 8
+
+func pmod(a int16, b int) int {
+	return (int(a)%b + b) % b
+}
 
 func run(program *[ULEN]uint8, pc int) {
-	var stack [SLEN]uint16
+	var stack [SLEN]int16
 	sp := 0
 	iterations := 0
 outer:
@@ -61,14 +65,17 @@ outer:
 			break
 		}
 		iterations++
-		pc %= ULEN
+		pc = pmod(int16(pc), ULEN)
 		op := program[pc]
 		pc++
 		if op&PUSH == PUSH {
 			if sp >= SLEN {
 				break outer
 			}
-			stack[sp] = uint16(op & 0x7f)
+			stack[sp] = int16(op & 0x7f)
+			if op&0x40 == 0x40 {
+				stack[sp] = -stack[sp]
+			}
 			sp++
 			continue
 		}
@@ -90,13 +97,13 @@ outer:
 				break outer
 			}
 			t := uint32(stack[sp-1]) * uint32(stack[sp-2])
-			stack[sp-1] = uint16(t >> 16)
-			stack[sp-2] = uint16(t & 0xffff)
+			stack[sp-1] = int16(t >> 16)
+			stack[sp-2] = int16(t & 0xffff)
 		case STORE:
 			if sp -= 2; sp < 0 {
 				break outer
 			}
-			program[stack[sp]%ULEN] = uint8(stack[sp+1] & 0xff)
+			program[pmod(stack[sp], ULEN)] = uint8(stack[sp+1] & 0xff)
 		case DUP:
 			if sp < 1 || sp >= SLEN {
 				break outer
@@ -107,19 +114,19 @@ outer:
 			if sp--; sp < 0 {
 				break outer
 			}
-			pc = int(stack[sp]) % ULEN
+			pc = (pc + int(stack[sp])) % ULEN
 		case JNZ:
 			if sp -= 2; sp < 0 {
 				break outer
 			}
 			if stack[sp] != 0 {
-				pc = int(stack[sp+1])
+				pc = (pc + int(stack[sp+1])) % ULEN
 			}
 		case LOAD:
 			if sp < 1 {
 				break outer
 			}
-			stack[sp-1] = uint16(program[stack[sp-1]%ULEN])
+			stack[sp-1] = int16(program[pmod(stack[sp-1], ULEN)])
 			sp++
 		case SWAP:
 			if sp < 2 {
@@ -132,22 +139,22 @@ outer:
 			if sp < 2 {
 				break outer
 			}
-			program[(stack[sp-2]+stack[sp-1])%ULEN] = program[stack[sp-2]%ULEN]
+			program[pmod(stack[sp-2]+stack[sp-1], ULEN)] = program[pmod(stack[sp-2], ULEN)]
 			sp--
 		case CALL:
 			if sp < 1 {
 				break outer
 			}
 			t := stack[sp-1]
-			stack[sp-1] = uint16(pc)
-			pc = int(t) % ULEN
+			stack[sp-1] = int16(pc)
+			pc = (pc + int(t)) % ULEN
 		case STOP:
 			break outer
 		case LOC:
 			if sp >= SLEN {
 				break outer
 			}
-			stack[sp] = uint16(pc)
+			stack[sp] = int16(pc)
 			sp++
 		}
 	}
@@ -201,11 +208,11 @@ func charp(instruction uint8) string {
 }
 
 func mutate(program *[ULEN]uint8) {
-	switch rand.Intn(2) {
+	switch rand.Intn(5) {
 	case 0:
 		program[rand.Intn(ULEN)] = uint8(rand.Intn(256))
-	case 1:
-		program[rand.Intn(ULEN)] = uint8(rand.Intn(13))
+	default:
+		program[rand.Intn(ULEN)] = uint8(rand.Intn(14))
 	}
 }
 
@@ -261,7 +268,7 @@ func main() {
 	var universe [ULEN]uint8
 
 	for i := 0; i < ULEN; i++ {
-		universe[i] = uint8(rand.Intn(256))
+		universe[i] = 0x3f
 	}
 
 	for i := 0; i < RUNNERS; i++ {

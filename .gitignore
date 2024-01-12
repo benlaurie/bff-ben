@@ -1,2 +1,4 @@
 .vscode/launch.json
-log.*
+logs/
+old-logs/
+blaise/
