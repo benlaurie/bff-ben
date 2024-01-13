@@ -1,10 +1,13 @@
 /*
 0000 xxxx	Push [xxxx], sign extended
 0001 xxxx	<top> = (<top> << 4) + [xxxx]
-0010 0000	Copy *(<pc> + <top - 1>) to *(<pc> + <top - 1> + <top>), pop 1
+0010 0000	Copy *(<pc> + <top - 1>) to *(<pc> + <top - 1> + <top>), pop 2
 0010 0001	Inc <top>
 0010 0010	Dec <top>
 0010 0011	Jump to <pc> + <top - 1> if <top> != 0, pop 2
+0010 0100   Duplicate <top>
+0010 0101   Swap <top> and <top - 1>
+0010 0110   Rotate the top <top> elements, pop 1
 */
 
 package main
@@ -19,7 +22,7 @@ import (
 )
 
 const ULEN = 8192 * 8
-const SLEN = 16
+const SLEN = 1024
 const ILIMIT = 1000
 const MUTATION_RATE = 8_000 * 32 / ULEN
 const RUNNERS = 8
@@ -33,7 +36,10 @@ const (
 	INC        = 0x21
 	DEC        = 0x22
 	JNZ        = 0x23
-	MAX_OP     = JNZ
+	DUP        = 0x24
+	SWAP       = 0x25
+	ROT        = 0x26
+	MAX_OP     = ROT
 )
 
 func pmod(a int, b int) int {
@@ -82,7 +88,8 @@ OUTER:
 					loc := pmod(pc+int(stack[sp-2]), ULEN)
 					off := int(stack[sp-1])
 					program[pmod(loc+off, ULEN)] = program[loc]
-					sp-- // Leave the destination on the stack
+					//sp-- // Leave the destination on the stack
+					sp -= 2
 				} else if STRICT {
 					break OUTER
 				}
@@ -107,6 +114,43 @@ OUTER:
 				} else if STRICT {
 					break OUTER
 				}
+			case DUP:
+				if sp > 0 {
+					if sp >= SLEN {
+						if STRICT {
+							break OUTER
+						}
+					} else {
+						stack[sp] = stack[sp-1]
+						sp++
+					}
+				} else if STRICT {
+					break OUTER
+				}
+			case SWAP:
+				if sp > 1 {
+					stack[sp-1], stack[sp-2] = stack[sp-2], stack[sp-1]
+				} else if STRICT {
+					break OUTER
+				}
+			case ROT:
+				if sp > 0 { // sp == 3
+					n := int(stack[sp-1]) // n == 2
+					sp--
+					if n > sp {
+						if STRICT {
+							break OUTER
+						}
+					} else {
+						if n > 0 {
+							t := stack[sp-1]
+							for i := 0; i > n-1; i-- { // i == 0, sp == 2, n == 2
+								stack[sp-i-1] = stack[sp-i-2]
+							}
+							stack[sp-n] = t
+						}
+					}
+				}
 			}
 		}
 	}
@@ -122,11 +166,17 @@ func charp(op uint8) string {
 		case COPY:
 			return "C"
 		case INC:
-			return "I"
+			return "+"
 		case DEC:
-			return "D"
+			return "-"
 		case JNZ:
 			return "J"
+		case DUP:
+			return "="
+		case SWAP:
+			return "X"
+		case ROT:
+			return "R"
 		}
 	}
 	return " "
@@ -135,7 +185,7 @@ func charp(op uint8) string {
 var show_off = 0
 
 func showp(program *[ULEN]uint8) {
-	show_off += SHOW_LEN
+	//show_off += SHOW_LEN
 	if show_off >= ULEN {
 		show_off -= ULEN
 	}
@@ -219,7 +269,7 @@ func main() {
 	if STRICT {
 		strict = "strict"
 	}
-	f := fmt.Sprintf("f3.log.%s.%s", strict, time.Now().Format("2006-01-02-15:04:05"))
+	f := fmt.Sprintf("logs/f5.log.%s.%s", strict, time.Now().Format("2006-01-02-15:04:05"))
 	log, err := os.Create(f)
 	if err != nil {
 		panic(err)
