@@ -1,13 +1,16 @@
 /*
 0000 xxxx	Push [xxxx], sign extended
 0001 xxxx	<top> = (<top> << 4) + [xxxx]
-0010 0000	Copy *(<pc> + <top - 1>) to *(<pc> + <top - 1> + <top>), pop 2
+0010 0000	Copy *(<pc> + <top - 1>) to *(<pc> + <top - 1> + <top>), pop 1
 0010 0001	Inc <top>
 0010 0010	Dec <top>
 0010 0011	Jump to <pc> + <top - 1> if <top> != 0, pop 2
 0010 0100   Duplicate <top>
 0010 0101   Swap <top> and <top - 1>
 0010 0110   Rotate the top <top> elements, pop 1
+0010 0111   Load: replace <top> with *(<pc> + <top>)
+0010 1000   Store: store <top - 1> at <pc> + <top>, pop 2
+0010 1001   Add <top> and <top - 1>, pop 1
 */
 
 package main
@@ -23,10 +26,10 @@ import (
 
 const ULEN = 8192 * 8
 const SLEN = 1024
-const ILIMIT = 1000
-const MUTATION_RATE = 8_000 * 32 / ULEN
+const ILIMIT = 500
+const MUTATION_RATE = 80_000 * 32 / ULEN
 const RUNNERS = 8
-const STRICT = false
+const STRICT = true
 const SHOW_LEN = 8192
 
 const (
@@ -39,7 +42,10 @@ const (
 	DUP        = 0x24
 	SWAP       = 0x25
 	ROT        = 0x26
-	MAX_OP     = ROT
+	LOAD       = 0x27
+	STORE      = 0x28
+	ADD        = 0x29
+	MAX_OP     = ADD
 )
 
 func pmod(a int, b int) int {
@@ -53,7 +59,7 @@ func sign_extend(a uint8) int8 {
 	return int8(a)
 }
 
-func run(program *[ULEN]uint8, pc int) {
+func run(program *[ULEN]uint8, pc int) int {
 	var stack [SLEN]int8
 	sp := 0
 	iterations := 0
@@ -88,8 +94,8 @@ OUTER:
 					loc := pmod(pc+int(stack[sp-2]), ULEN)
 					off := int(stack[sp-1])
 					program[pmod(loc+off, ULEN)] = program[loc]
-					//sp-- // Leave the destination on the stack
-					sp -= 2
+					sp-- // Leave the destination on the stack
+					//sp -= 2
 				} else if STRICT {
 					break OUTER
 				}
@@ -151,9 +157,32 @@ OUTER:
 						}
 					}
 				}
+			case LOAD:
+				if sp > 0 {
+					loc := pmod(pc+int(stack[sp-1]), ULEN)
+					stack[sp-1] = int8(program[loc])
+				} else if STRICT {
+					break OUTER
+				}
+			case STORE:
+				if sp > 1 {
+					loc := pmod(pc+int(stack[sp-1]), ULEN)
+					program[loc] = uint8(stack[sp-2])
+					sp -= 2
+				} else if STRICT {
+					break OUTER
+				}
+			case ADD:
+				if sp > 1 {
+					stack[sp-2] += stack[sp-1]
+					sp--
+				} else if STRICT {
+					break OUTER
+				}
 			}
 		}
 	}
+	return iterations
 }
 
 func charp(op uint8) string {
@@ -166,9 +195,9 @@ func charp(op uint8) string {
 		case COPY:
 			return "C"
 		case INC:
-			return "+"
+			return ">"
 		case DEC:
-			return "-"
+			return "<"
 		case JNZ:
 			return "J"
 		case DUP:
@@ -177,6 +206,12 @@ func charp(op uint8) string {
 			return "X"
 		case ROT:
 			return "R"
+		case LOAD:
+			return "^"
+		case STORE:
+			return "v"
+		case ADD:
+			return "+"
 		}
 	}
 	return " "
@@ -244,12 +279,12 @@ func mutate(program *[ULEN]uint8) {
 	}
 }
 
-func runner(universe *[ULEN]uint8, generation *uint64) {
+func runner(universe *[ULEN]uint8, generation *uint64, n_ops *uint64) {
 	n := 0
 	for {
 		n++
 
-		run(universe, rand.Intn(ULEN))
+		*n_ops += uint64(run(universe, rand.Intn(ULEN)))
 		if rand.Intn(MUTATION_RATE) == 0 {
 			mutate(universe)
 		}
@@ -257,8 +292,9 @@ func runner(universe *[ULEN]uint8, generation *uint64) {
 	}
 }
 
-func dump(f *os.File, generation uint64, universe *[ULEN]uint8) {
-	binary.Write(f, binary.LittleEndian, uint64(generation))
+func dump(f *os.File, generation uint64, n_ops uint64, universe *[ULEN]uint8) {
+	binary.Write(f, binary.LittleEndian, generation)
+	binary.Write(f, binary.LittleEndian, n_ops)
 	for i := 0; i < ULEN; i++ {
 		binary.Write(f, binary.LittleEndian, universe[i])
 	}
@@ -289,15 +325,20 @@ func main() {
 	}
 
 	var generation uint64
+	var n_ops uint64
 	for i := 0; i < RUNNERS; i++ {
-		go runner(&universe, &generation)
+		go runner(&universe, &generation, &n_ops)
 	}
 
+	p_n_ops := uint64(0)
+	p_generation := uint64(0)
 	for {
 		var u2 [ULEN]uint8
 		copy(u2[:], universe[:])
-		dump(log, generation, &u2)
-		fmt.Println("\033c", generation)
+		dump(log, generation, n_ops, &u2)
+		fmt.Println("\033c", generation, n_ops, generation-p_generation, n_ops-p_n_ops, (n_ops-p_n_ops)/(generation-p_generation))
+		p_n_ops = n_ops
+		p_generation = generation
 		showp(&u2)
 		for i := 2; i < 16; i++ {
 			showngrams(&u2, i)
