@@ -26,7 +26,7 @@ import (
 
 const ULEN = 8192 * 8
 const SLEN = 1024
-const ILIMIT = 500
+const ILIMIT = 100_000
 const MUTATION_RATE = 80_000 * 32 / ULEN
 const RUNNERS = 8
 const STRICT = true
@@ -140,8 +140,8 @@ OUTER:
 					break OUTER
 				}
 			case ROT:
-				if sp > 0 { // sp == 3
-					n := int(stack[sp-1]) // n == 2
+				if sp > 0 {
+					n := int(stack[sp-1])
 					sp--
 					if n > sp {
 						if STRICT {
@@ -150,7 +150,7 @@ OUTER:
 					} else {
 						if n > 0 {
 							t := stack[sp-1]
-							for i := 0; i > n-1; i-- { // i == 0, sp == 2, n == 2
+							for i := 0; i > n-1; i-- {
 								stack[sp-i-1] = stack[sp-i-2]
 							}
 							stack[sp-n] = t
