@@ -11,6 +11,12 @@
 0010 0111   Load: replace <top> with *(<pc> + <top>)
 0010 1000   Store: store <top - 1> at <pc> + <top>, pop 2
 0010 1001   Add <top> and <top - 1>, pop 1
+0010 1010   Set Read Head to <pc> + <top>
+0010 1011   Set Write Head to <pc> + <top>
+0010 1100   Read: Push *<read head>
+0010 1101   Write: Pop <top> and write to *<write head>
+0010 1110	Inc Read Head
+0010 1111	Inc Write Head
 */
 
 package main
@@ -26,7 +32,7 @@ import (
 
 const ULEN = 8192 * 8
 const SLEN = 1024
-const ILIMIT = 100_000
+const ILIMIT = 1_000
 const MUTATION_RATE = 80_000 * 32 / ULEN
 const RUNNERS = 8
 const STRICT = true
@@ -45,7 +51,13 @@ const (
 	LOAD       = 0x27
 	STORE      = 0x28
 	ADD        = 0x29
-	MAX_OP     = ADD
+	SRH        = 0x2a
+	SWH        = 0x2b
+	READ       = 0x2c
+	WRITE      = 0x2d
+	INC_RH     = 0x2e
+	INC_WH     = 0x2f
+	MAX_OP     = INC_WH
 )
 
 func pmod(a int, b int) int {
@@ -63,6 +75,8 @@ func run(program *[ULEN]uint8, pc int) int {
 	var stack [SLEN]int8
 	sp := 0
 	iterations := 0
+	read_head := 0
+	write_head := 0
 
 OUTER:
 	for {
@@ -89,16 +103,18 @@ OUTER:
 			}
 		} else {
 			switch op {
-			case COPY:
-				if sp > 1 {
-					loc := pmod(pc+int(stack[sp-2]), ULEN)
-					off := int(stack[sp-1])
-					program[pmod(loc+off, ULEN)] = program[loc]
-					sp-- // Leave the destination on the stack
-					//sp -= 2
-				} else if STRICT {
-					break OUTER
-				}
+			/*
+				case COPY:
+					if sp > 1 {
+						loc := pmod(pc+int(stack[sp-2]), ULEN)
+						off := int(stack[sp-1])
+						program[pmod(loc+off, ULEN)] = program[loc]
+						sp-- // Leave the destination on the stack
+						//sp -= 2
+					} else if STRICT {
+						break OUTER
+					}
+			*/
 			case INC:
 				if sp > 0 {
 					stack[sp-1]++
@@ -179,6 +195,40 @@ OUTER:
 				} else if STRICT {
 					break OUTER
 				}
+			case SRH:
+				if sp > 0 {
+					read_head = pmod(pc+int(stack[sp-1]), ULEN)
+					sp--
+				} else if STRICT {
+					break OUTER
+				}
+			case SWH:
+				if sp > 0 {
+					write_head = pmod(pc+int(stack[sp-1]), ULEN)
+					sp--
+				} else if STRICT {
+					break OUTER
+				}
+			case READ:
+				if sp >= SLEN {
+					if STRICT {
+						break OUTER
+					}
+				} else {
+					stack[sp] = int8(program[read_head])
+					sp++
+				}
+			case WRITE:
+				if sp > 0 {
+					program[write_head] = uint8(stack[sp-1])
+					sp--
+				} else if STRICT {
+					break OUTER
+				}
+			case INC_RH:
+				read_head = pmod(read_head+1, ULEN)
+			case INC_WH:
+				write_head = pmod(write_head+1, ULEN)
 			}
 		}
 	}
@@ -205,13 +255,25 @@ func charp(op uint8) string {
 		case SWAP:
 			return "X"
 		case ROT:
-			return "R"
+			return "O"
 		case LOAD:
 			return "^"
 		case STORE:
 			return "v"
 		case ADD:
 			return "+"
+		case SRH:
+			return "r"
+		case SWH:
+			return "w"
+		case READ:
+			return "R"
+		case WRITE:
+			return "W"
+		case INC_RH:
+			return "i"
+		case INC_WH:
+			return "j"
 		}
 	}
 	return " "
@@ -305,7 +367,7 @@ func main() {
 	if STRICT {
 		strict = "strict"
 	}
-	f := fmt.Sprintf("logs/f5.log.%s.%s", strict, time.Now().Format("2006-01-02-15:04:05"))
+	f := fmt.Sprintf("logs/f6.log.%s.%s", strict, time.Now().Format("2006-01-02-15:04:05"))
 	log, err := os.Create(f)
 	if err != nil {
 		panic(err)
