@@ -24,10 +24,16 @@ package main
 import (
 	"encoding/binary"
 	"fmt"
+	"image/color"
 	"math/rand"
 	"os"
 	"sort"
 	"time"
+
+	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/app"
+	"fyne.io/fyne/v2/canvas"
+	"github.com/crazy3lf/colorconv"
 )
 
 const ULEN = 8192 * 8
@@ -392,20 +398,47 @@ func main() {
 		go runner(&universe, &generation, &n_ops)
 	}
 
-	p_n_ops := uint64(0)
-	p_generation := uint64(0)
-	for {
-		var u2 [ULEN]uint8
-		copy(u2[:], universe[:])
-		dump(log, generation, n_ops, &u2)
-		fmt.Println("\033c", generation, n_ops, generation-p_generation, n_ops-p_n_ops, (n_ops-p_n_ops)/(generation-p_generation))
-		p_n_ops = n_ops
-		p_generation = generation
-		showp(&u2)
-		for i := 2; i < 16; i++ {
-			showngrams(&u2, i)
-			fmt.Print("\n")
+	myApp := app.New()
+	w := myApp.NewWindow("Raster")
+
+	raster := canvas.NewRasterWithPixels(
+		func(x, y, w, h int) color.Color {
+			n := x + y*w
+			if n >= ULEN {
+				return color.Black
+			}
+
+			op := universe[n]
+
+			hsl, _ := colorconv.HSLToColor(float64(op)/256.0*360.0, 1.0, 0.5)
+
+			return hsl
+
+			return color.RGBA{op, op, op, 0xff}
+		})
+	// raster := canvas.NewRasterFromImage()
+	w.SetContent(raster)
+	w.Resize(fyne.NewSize(128, ULEN/128))
+
+	go func() {
+		p_n_ops := uint64(0)
+		p_generation := uint64(0)
+		for {
+			var u2 [ULEN]uint8
+			copy(u2[:], universe[:])
+			dump(log, generation, n_ops, &u2)
+			fmt.Println("\033c", generation, n_ops, generation-p_generation, n_ops-p_n_ops, (n_ops-p_n_ops)/(generation-p_generation))
+			p_n_ops = n_ops
+			p_generation = generation
+			showp(&u2)
+			for i := 2; i < 16; i++ {
+				showngrams(&u2, i)
+				fmt.Print("\n")
+			}
+			raster.Refresh()
+			time.Sleep(1 * time.Second)
 		}
-		time.Sleep(1 * time.Second)
-	}
+	}()
+
+	w.ShowAndRun()
 }
