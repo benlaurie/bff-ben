@@ -18,16 +18,23 @@ package main
 import (
 	"encoding/binary"
 	"fmt"
+	"image/color"
 	"math/rand"
 	"os"
 	"sort"
 	"time"
+
+	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/app"
+	"fyne.io/fyne/v2/canvas"
+	"github.com/crazy3lf/colorconv"
 )
 
-const ULEN = 8192 * 8
+const SQRT_ULEN = 256
+const ULEN = SQRT_ULEN * SQRT_ULEN
 const SLEN = 1024
-const ILIMIT = 100_000
-const MUTATION_RATE = 80_000 * 32 / ULEN
+const ILIMIT = 8000
+const MUTATION_RATE = 320_000 // Higher is less mutation
 const RUNNERS = 8
 const STRICT = true
 const SHOW_LEN = 8192
@@ -269,24 +276,28 @@ func showngrams(universe *[ULEN]uint8, n int) {
 }
 
 func mutate(program *[ULEN]uint8) {
-	switch rand.Intn(5) {
-	case 0:
-		program[rand.Intn(ULEN)] = uint8(rand.Intn(256))
-	case 1:
-		program[rand.Intn(ULEN)] = uint8(rand.Intn(MAX_OP + 1))
-	default:
-		program[rand.Intn(ULEN)] = 0x20 + uint8(rand.Intn(MAX_OP+1-0x20))
-	}
+	program[rand.Intn(ULEN)] = uint8(rand.Intn(256))
+	/*
+		switch rand.Intn(5) {
+		case 0:
+			program[rand.Intn(ULEN)] = uint8(rand.Intn(256))
+		case 1:
+			program[rand.Intn(ULEN)] = uint8(rand.Intn(MAX_OP + 1))
+		default:
+			program[rand.Intn(ULEN)] = 0x20 + uint8(rand.Intn(MAX_OP+1-0x20))
+		}
+	*/
 }
 
 func runner(universe *[ULEN]uint8, generation *uint64, n_ops *uint64) {
-	n := 0
+	t := 0
 	for {
-		n++
-
-		*n_ops += uint64(run(universe, rand.Intn(ULEN)))
-		if rand.Intn(MUTATION_RATE) == 0 {
+		n := run(universe, rand.Intn(ULEN))
+		*n_ops += uint64(n)
+		t += n
+		for t > MUTATION_RATE {
 			mutate(universe)
+			t -= MUTATION_RATE
 		}
 		*generation++
 	}
@@ -322,6 +333,8 @@ func main() {
 
 	for i := 0; i < ULEN; i++ {
 		universe[i] = 0x3f
+		//universe[i] = uint8(rand.Intn(256))
+		//mutate(&universe)
 	}
 
 	var generation uint64
@@ -330,20 +343,85 @@ func main() {
 		go runner(&universe, &generation, &n_ops)
 	}
 
-	p_n_ops := uint64(0)
-	p_generation := uint64(0)
-	for {
-		var u2 [ULEN]uint8
-		copy(u2[:], universe[:])
-		dump(log, generation, n_ops, &u2)
-		fmt.Println("\033c", generation, n_ops, generation-p_generation, n_ops-p_n_ops, (n_ops-p_n_ops)/(generation-p_generation))
-		p_n_ops = n_ops
-		p_generation = generation
-		showp(&u2)
-		for i := 2; i < 16; i++ {
-			showngrams(&u2, i)
-			fmt.Print("\n")
+	myApp := app.New()
+	w := myApp.NewWindow("Raster")
+
+	raster := canvas.NewRasterWithPixels(
+		func(x, y, w, h int) color.Color {
+			/*
+				n := x + y*w
+				if n >= ULEN {
+					return color.Black
+				}
+
+				op := universe[n]
+
+				if op > MAX_OP {
+					//return color.Black
+					hsl, _ := colorconv.HSLToColor(0.0, 0.0, 0.0)
+					return hsl
+				}
+
+				hsl, _ := colorconv.HSLToColor(float64(op)/256.0*360.0, 1.0, 0.5)
+
+				return hsl
+			*/
+
+			x = x * SQRT_ULEN / w
+			y = y * SQRT_ULEN / h
+			n := x + y*SQRT_ULEN
+			if n >= ULEN {
+				hsl, _ := colorconv.HSLToColor(0.0, 0.0, 0.0)
+				return hsl
+			}
+
+			op := universe[n]
+
+			if op > MAX_OP {
+				hsl, _ := colorconv.HSLToColor(0.0, 0.0, 0.0)
+				return hsl
+			}
+
+			hsl, err := colorconv.HSLToColor(float64(op)/float64(MAX_OP+1)*360.0, 0.9, 0.5)
+			//hsl, err := colorconv.HSLToColor(float64(op)/256.0*360.0, 1.0, 0.5)
+
+			if err != nil {
+				panic(err)
+			}
+
+			return hsl
+
+		})
+	// raster := canvas.NewRasterFromImage()
+	w.SetContent(raster)
+	w.Resize(fyne.NewSize(SQRT_ULEN*2, SQRT_ULEN*2))
+
+	go func() {
+		for {
+			raster.Refresh()
+			time.Sleep(20 * time.Millisecond)
 		}
-		time.Sleep(1 * time.Second)
-	}
+	}()
+
+	go func() {
+		p_n_ops := uint64(0)
+		p_generation := uint64(0)
+		for {
+			var u2 [ULEN]uint8
+			copy(u2[:], universe[:])
+			dump(log, generation, n_ops, &u2)
+			fmt.Println("\033c", generation, n_ops, generation-p_generation, n_ops-p_n_ops, (n_ops-p_n_ops)/(generation-p_generation))
+			p_n_ops = n_ops
+			p_generation = generation
+			showp(&u2)
+			for i := 2; i < 16; i++ {
+				showngrams(&u2, i)
+				fmt.Print("\n")
+			}
+			time.Sleep(1 * time.Second)
+		}
+	}()
+
+	w.ShowAndRun()
+
 }
