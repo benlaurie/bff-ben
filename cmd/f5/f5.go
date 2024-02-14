@@ -18,6 +18,7 @@ package main
 import (
 	"encoding/binary"
 	"fmt"
+	"image"
 	"image/color"
 	"math/rand"
 	"os"
@@ -33,8 +34,8 @@ import (
 const SQRT_ULEN = 256
 const ULEN = SQRT_ULEN * SQRT_ULEN
 const SLEN = 1024
-const ILIMIT = 8000
-const MUTATION_RATE = 320_000 // Higher is less mutation
+const ILIMIT = 1_000
+const MUTATION_RATE = 500_000 // Higher is less mutation
 const RUNNERS = 8
 const STRICT = true
 const SHOW_LEN = 8192
@@ -276,7 +277,8 @@ func showngrams(universe *[ULEN]uint8, n int) {
 }
 
 func mutate(program *[ULEN]uint8) {
-	program[rand.Intn(ULEN)] = uint8(rand.Intn(256))
+	//program[rand.Intn(ULEN)] = uint8(rand.Intn(256))
+	program[rand.Intn(ULEN)] = uint8(rand.Intn(MAX_OP + 1))
 	/*
 		switch rand.Intn(5) {
 		case 0:
@@ -396,9 +398,49 @@ func main() {
 	w.SetContent(raster)
 	w.Resize(fyne.NewSize(SQRT_ULEN*2, SQRT_ULEN*2))
 
+	i_w := myApp.NewWindow("Instructions")
+	i_raster := canvas.NewRaster(
+		func(w, h int) image.Image {
+			var ops [256]uint64
+			max := uint64(0)
+			for i := 0; i < ULEN; i++ {
+				ops[universe[i]]++
+				if ops[universe[i]] > max {
+					max = ops[universe[i]]
+				}
+			}
+			image := image.NewRGBA(image.Rect(0, 0, w, h))
+			for y := 0; y < h; y++ {
+				op := y * 256 / h
+				if op > 255 {
+					op = 255
+				}
+				hue := float64(op) / float64(MAX_OP+1) * 360.0
+				l := float64(ops[op]) / float64(max)
+				s := 1.0
+				if op > MAX_OP {
+					hue = 0.0
+					s = 0.0
+				}
+
+				hsl, err := colorconv.HSLToColor(hue, s, l)
+				if err != nil {
+					panic(err)
+				}
+
+				for x := 0; x < w; x++ {
+					image.Set(x, y, hsl)
+				}
+			}
+			return image
+		})
+	i_w.SetContent(i_raster)
+	i_w.Resize(fyne.NewSize(128, 512))
+
 	go func() {
 		for {
 			raster.Refresh()
+			i_raster.Refresh()
 			time.Sleep(20 * time.Millisecond)
 		}
 	}()
@@ -422,6 +464,7 @@ func main() {
 		}
 	}()
 
+	i_w.Show()
 	w.ShowAndRun()
 
 }
