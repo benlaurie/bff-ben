@@ -350,10 +350,12 @@ func main() {
 			p_n_ops = n_ops
 			p_generation = generation
 			showp(&u2)
-			for i := 2; i < 16; i++ {
-				showngrams(&u2, i)
-				fmt.Print("\n")
-			}
+			/*
+				for i := 2; i < 16; i++ {
+					showngrams(&u2, i)
+					fmt.Print("\n")
+				}
+			*/
 			time.Sleep(1 * time.Second)
 		}
 	}()
