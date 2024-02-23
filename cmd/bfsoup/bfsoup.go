@@ -7,10 +7,42 @@
 -		   Decrement cell at head 0
 .		   Copy cell at head 0 to head 1
 ,		   Copy cell at head 1 to head 0
-[		   Beginning of loop (error if no matching ])
-]		   End of loop (error if no matching [)
+[		   Beginning of loop (error if no matching ]) - go to end if *head0 == 0
+]		   End of loop (error if no matching [) - go to beginning if *head0 != 0
 !		   Place head 0 here
 ?		   Place head 1 here
+
+a          Add 2 to head 0
+b          Add 4 to head 0
+c          Add 8 to head 0
+d          Add 16 to head 0
+e          Add 32 to head 0
+f          Add 64 to head 0
+g          Add 128 to head 0
+
+z		  Subtract 2 from head 0
+y		  Subtract 4 from head 0
+x		  Subtract 8 from head 0
+w		  Subtract 16 from head 0
+v		  Subtract 32 from head 0
+u		  Subtract 64 from head 0
+t		  Subtract 128 from head 0
+
+A		  Add 2 to head 1
+B		  Add 4 to head 1
+C		  Add 8 to head 1
+D		  Add 16 to head 1
+E		  Add 32 to head 1
+F		  Add 64 to head 1
+G		  Add 128 to head 1
+
+Z		  Subtract 2 from head 1
+Y		  Subtract 4 from head 1
+X		  Subtract 8 from head 1
+W		  Subtract 16 from head 1
+V		  Subtract 32 from head 1
+U		  Subtract 64 from head 1
+T		  Subtract 128 from head 1
 */
 
 package main
@@ -32,12 +64,12 @@ func graphics(universe *[65536]uint8) {
 }
 */
 
-const OPS = "<>{}+-.,[]!?"
+const OPS = "<>{}+-.,[]!?abcdefgtuvwxyzABCDEFZYXWVUT"
 const SQRT_ULEN = 256
 const ULEN = SQRT_ULEN * SQRT_ULEN
 const SLEN = 1024
-const ILIMIT = 50_000
-const MUTATION_RATE = 1_000_000 // Higher is less mutation
+const ILIMIT = 5_000
+const MUTATION_RATE = 200_000 // Higher is less mutation
 const RUNNERS = 8
 const STRICT = true
 const SHOW_LEN = 8192
@@ -63,18 +95,20 @@ OUTER:
 		if iterations++; iterations > ILIMIT {
 			break
 		}
+		head0 = pmod(head0, ULEN)
+		head1 = pmod(head1, ULEN)
 
 		op := program[pc]
 		pc = (pc + 1) % ULEN
 		switch op {
 		case '<':
-			head0 = pmod(head0-1, ULEN)
+			head0 -= 1
 		case '>':
-			head0 = pmod(head0+1, ULEN)
+			head0 += 1
 		case '{':
-			head1 = pmod(head1-1, ULEN)
+			head1 -= 1
 		case '}':
-			head1 = pmod(head1+1, ULEN)
+			head1 += 1
 		case '+':
 			program[head0]++
 		case '-':
@@ -128,6 +162,17 @@ OUTER:
 			head0 = pc
 		case '?':
 			head1 = pc
+		default:
+			switch {
+			case op >= 'a' && op <= 'g':
+				head0 += 1 << int(op-'a'+1)
+			case op >= 't' && op <= 'z':
+				head0 -= 256 >> int(op-'t'+1)
+			case op >= 'A' && op <= 'G':
+				head1 += 1 << int(op-'A'+1)
+			case op >= 'T' && op <= 'Z':
+				head1 -= 256 >> int(op-'T'+1)
+			}
 		}
 	}
 	return iterations
