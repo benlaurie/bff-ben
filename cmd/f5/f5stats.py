@@ -53,6 +53,7 @@ y3 = []
 y4 = []
 y5 = []
 prev_program = None
+print("generation, op_count, delta_gen, rate, cratio, entropy, entropy-cratio, changes")
 while True:
     generation, ok = read_long(f)
     if not ok:

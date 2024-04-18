@@ -3,7 +3,7 @@
 
 package main
 
-func graphics(_ *[65536]uint8) {
+func graphics(universe *[65536]uint8) {
 	// Sleep forever
 	select {}
 }

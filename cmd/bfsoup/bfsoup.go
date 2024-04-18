@@ -69,7 +69,7 @@ const SQRT_ULEN = 256
 const ULEN = SQRT_ULEN * SQRT_ULEN
 const SLEN = 1024
 const ILIMIT = 5_000
-const MUTATION_RATE = 200_000 // Higher is less mutation
+const MUTATION_RATE = 50_000 // Higher is less mutation
 const RUNNERS = 8
 const STRICT = true
 const SHOW_LEN = 8192
@@ -162,17 +162,28 @@ OUTER:
 			head0 = pc
 		case '?':
 			head1 = pc
-		default:
-			switch {
-			case op >= 'a' && op <= 'g':
-				head0 += 1 << int(op-'a'+1)
-			case op >= 't' && op <= 'z':
-				head0 -= 256 >> int(op-'t'+1)
-			case op >= 'A' && op <= 'G':
-				head1 += 1 << int(op-'A'+1)
-			case op >= 'T' && op <= 'Z':
-				head1 -= 256 >> int(op-'T'+1)
-			}
+		case 'a':
+			head0 += 2
+		case 'A':
+			head1 += 2
+		case 'z':
+			head0 -= 2
+		case 'Z':
+			head1 -= 2
+
+			/*
+				default:
+					switch {
+					case op >= 'a' && op <= 'g':
+						head0 += 1 << int(op-'a'+1)
+					case op >= 't' && op <= 'z':
+						head0 -= 256 >> int(op-'t'+1)
+					case op >= 'A' && op <= 'G':
+						head1 += 1 << int(op-'A'+1)
+					case op >= 'T' && op <= 'Z':
+						head1 -= 256 >> int(op-'T'+1)
+					}
+			*/
 		}
 	}
 	return iterations

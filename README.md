@@ -55,7 +55,7 @@ $ GOMAXPROCS=32 go run links.org/bf/cmd/f4
 Increasing language complexity, also bringing back load and store, Again this produces interesting behaviour. If you remove the copy operator (easily done by just commenting out the code for it) replicators have not arisen in my experiments.
 
 ```shell
-$ GOMAXPROCS=32 go run links.org/bf/cmd/f5
+$ GOMAXPROCS=32 go run --tags="graphics" links.org/bf/cmd/f5
 ```
 
 `f5.py` will produce a CSV of iteration statistics.

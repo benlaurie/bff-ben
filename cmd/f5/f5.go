@@ -28,7 +28,7 @@ const SQRT_ULEN = 256
 const ULEN = SQRT_ULEN * SQRT_ULEN
 const SLEN = 1024
 const ILIMIT = 1_000
-const MUTATION_RATE = 500_000 // Higher is less mutation
+const MUTATION_RATE = 400_000 // Higher is less mutation
 const RUNNERS = 8
 const STRICT = true
 const SHOW_LEN = 8192
@@ -40,13 +40,16 @@ const (
 	INC        = 0x21
 	DEC        = 0x22
 	JNZ        = 0x23
-	DUP        = 0x24
-	SWAP       = 0x25
-	ROT        = 0x26
-	LOAD       = 0x27
-	STORE      = 0x28
-	ADD        = 0x29
-	MAX_OP     = ADD
+	/*
+		DUP        = 0x24
+		SWAP       = 0x25
+		ROT        = 0x26
+		LOAD       = 0x27
+		STORE      = 0x28
+		ADD        = 0x29
+		MAX_OP     = ADD
+	*/
+	MAX_OP = JNZ
 )
 
 func pmod(a int, b int) int {
@@ -121,65 +124,67 @@ OUTER:
 				} else if STRICT {
 					break OUTER
 				}
-			case DUP:
-				if sp > 0 {
-					if sp >= SLEN {
-						if STRICT {
-							break OUTER
-						}
-					} else {
-						stack[sp] = stack[sp-1]
-						sp++
-					}
-				} else if STRICT {
-					break OUTER
-				}
-			case SWAP:
-				if sp > 1 {
-					stack[sp-1], stack[sp-2] = stack[sp-2], stack[sp-1]
-				} else if STRICT {
-					break OUTER
-				}
-			case ROT:
-				if sp > 0 {
-					n := int(stack[sp-1])
-					sp--
-					if n > sp {
-						if STRICT {
-							break OUTER
-						}
-					} else {
-						if n > 0 {
-							t := stack[sp-1]
-							for i := 0; i > n-1; i-- {
-								stack[sp-i-1] = stack[sp-i-2]
+				/*
+					case DUP:
+						if sp > 0 {
+							if sp >= SLEN {
+								if STRICT {
+									break OUTER
+								}
+							} else {
+								stack[sp] = stack[sp-1]
+								sp++
 							}
-							stack[sp-n] = t
+						} else if STRICT {
+							break OUTER
 						}
-					}
-				}
-			case LOAD:
-				if sp > 0 {
-					loc := pmod(pc+int(stack[sp-1]), ULEN)
-					stack[sp-1] = int8(program[loc])
-				} else if STRICT {
-					break OUTER
-				}
-			case STORE:
-				if sp > 1 {
-					loc := pmod(pc+int(stack[sp-1]), ULEN)
-					program[loc] = uint8(stack[sp-2])
-					sp -= 2
-				} else if STRICT {
-					break OUTER
-				}
-			case ADD:
-				if sp > 1 {
-					stack[sp-2] += stack[sp-1]
-					sp--
-				} else if STRICT {
-					break OUTER
-				}
+					case SWAP:
+						if sp > 1 {
+							stack[sp-1], stack[sp-2] = stack[sp-2], stack[sp-1]
+						} else if STRICT {
+							break OUTER
+						}
+					case ROT:
+						if sp > 0 {
+							n := int(stack[sp-1])
+							sp--
+							if n > sp {
+								if STRICT {
+									break OUTER
+								}
+							} else {
+								if n > 0 {
+									t := stack[sp-1]
+									for i := 0; i > n-1; i-- {
+										stack[sp-i-1] = stack[sp-i-2]
+									}
+									stack[sp-n] = t
+								}
+							}
+						}
+					case LOAD:
+						if sp > 0 {
+							loc := pmod(pc+int(stack[sp-1]), ULEN)
+							stack[sp-1] = int8(program[loc])
+						} else if STRICT {
+							break OUTER
+						}
+					case STORE:
+						if sp > 1 {
+							loc := pmod(pc+int(stack[sp-1]), ULEN)
+							program[loc] = uint8(stack[sp-2])
+							sp -= 2
+						} else if STRICT {
+							break OUTER
+						}
+					case ADD:
+						if sp > 1 {
+							stack[sp-2] += stack[sp-1]
+							sp--
+						} else if STRICT {
+							break OUTER
+						}
+				*/
 			}
 		}
 	}
@@ -188,31 +193,33 @@ OUTER:
 
 func charp(op uint8) string {
 	if op&0xf0 == PUSH {
-		return "P"
+		return string('A' + op&0x0f)
 	} else if op&0xf0 == SHIFT_PUSH {
-		return "S"
+		return string('a' + op&0x0f)
 	} else {
 		switch op {
 		case COPY:
-			return "C"
+			return "="
 		case INC:
 			return ">"
 		case DEC:
 			return "<"
 		case JNZ:
-			return "J"
-		case DUP:
-			return "="
-		case SWAP:
-			return "X"
-		case ROT:
-			return "R"
-		case LOAD:
 			return "^"
-		case STORE:
-			return "v"
-		case ADD:
-			return "+"
+			/*
+				case DUP:
+					return "="
+				case SWAP:
+					return "X"
+				case ROT:
+					return "R"
+				case LOAD:
+					return "^"
+				case STORE:
+					return "v"
+				case ADD:
+					return "+"
+			*/
 		}
 	}
 	return " "

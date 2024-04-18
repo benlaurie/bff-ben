@@ -1,3 +1,4 @@
+import binascii
 import sys
 
 def read_long(s):
@@ -15,6 +16,36 @@ RUNNERS = read_long(f)
 
 #print(f'ULEN: {ULEN} SLEN: {SLEN} ILIMIT: {ILIMIT} MUTATION_RATE: {MUTATION_RATE} RUNNERS: {RUNNERS}')
 
+def find_longest_repoeated_substring(s):
+    n = len(s)
+    z = [0] * n
+    l = r = 0
+    longest_substring = bytes()
+    for i in range(1, n):
+        if i <= r:
+            z[i] = min(r-i+1, z[i-l])
+        while i+z[i] < n and s[z[i]] == s[i+z[i]]:
+            z[i] += 1
+        if i+z[i]-1 > r:
+            l, r = i, i+z[i]-1
+    max_z = max(z)
+    if max_z > 1:
+        longest_substring = s[l:l+max_z]
+    print(binascii.hexlify(longest_substring), end=' ')
+    return longest_substring
+    if len(longest_substring) > 1:
+        find_longest_repoeated_substring(longest_substring)
+
+def test_find_longest_repoeated_substring():
+    assert find_longest_repoeated_substring(b'abc') == b''
+    assert find_longest_repoeated_substring(b'abcaa') == b'a'
+    assert find_longest_repoeated_substring(b'abcab') == b'ab'
+    assert find_longest_repoeated_substring(b'abcabc') == b'abc'
+    assert find_longest_repoeated_substring(b'abcabcd') == b''
+
+test_find_longest_repoeated_substring()
+sys.exit(0)
+
 def sign_extend(a):
 	if a&0x08 == 0x08:
 		return a - 0x10
@@ -28,6 +59,10 @@ while True:
     program = f.read(ULEN)
     if generation == 0:
          continue
+    find_longest_repoeated_substring(program)
+    print()
+    continue
+
     print(f'{generation}, {op_count}, {generation-pg}, {(op_count-po) / (generation-pg)}')
     pg = generation
     po = op_count
