@@ -37,6 +37,7 @@ require (
 )
 
 require (
+	github.com/Krawabbel/go-8080 v0.0.0-20231029164547-08d36a34d0a3
 	github.com/crazy3lf/colorconv v1.2.0
 	github.com/google/go-cmp v0.5.9 // indirect
 	github.com/stretchr/testify v1.8.4 // indirect
