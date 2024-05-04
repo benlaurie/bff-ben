@@ -14,26 +14,24 @@ const REGION_MASK = uint16(0xfff0)
 const TOP_BIT = ^REGION_MASK & ((^REGION_MASK) >> 1)
 
 const ULEN = 0x10000
-const ILIMIT = 1_000            // clocks
-const MUTATION_RATE = 4_000_000 // Higher is less mutation
+const ILIMIT = 1_000                // clocks
+const MUTATION_RATE = 4_000_000_000 // Higher is less mutation
 const RUNNERS = 16
 
-type RAM struct {
-	ram *[ULEN]byte
-}
+type RAM [ULEN]byte
 
 type CPUWithRAM struct {
 	i8080.CPU
-	ram  RAM
+	ram  *RAM
 	base uint16
 }
 
-func (r RAM) Read(addr uint16) uint8 {
-	return r.ram[addr]
+func (r *RAM) Read(addr uint16) uint8 {
+	return r[addr]
 }
 
-func (r RAM) Write(addr uint16, data uint8) {
-	r.ram[addr] = data
+func (r *RAM) Write(addr uint16, data uint8) {
+	r[addr] = data
 }
 
 /*
@@ -89,7 +87,7 @@ func runner(cpu *CPUWithRAM, generation *uint64, n_ops *uint64) {
 		t += n
 		for t > MUTATION_RATE {
 			//cpu.ram[rand.Intn(ULEN)] ^= uint8(1) << rand.Intn(8)
-			cpu.ram.ram[rand.Intn(ULEN)] = uint8(rand.Intn(256))
+			cpu.ram[rand.Intn(ULEN)] = uint8(rand.Intn(256))
 			t -= MUTATION_RATE
 		}
 		*generation++
@@ -139,19 +137,17 @@ func main() {
 	binary.Write(log, binary.LittleEndian, uint64(RUNNERS))
 
 	ram := RAM{}
-	var dram [ULEN]byte
-	ram.ram = &dram
 
 	for i := 0; i < ULEN; i++ {
 		//universe[i] = 0x3f
-		ram.ram[i] = uint8(rand.Intn(256))
+		ram[i] = uint8(rand.Intn(256))
 		//mutate(&universe)
 	}
 
 	var generation uint64
 	var n_ops uint64
 	for i := 0; i < RUNNERS; i++ {
-		cpu_with_ram := CPUWithRAM{ram: ram}
+		cpu_with_ram := CPUWithRAM{ram: &ram}
 		go runner(&cpu_with_ram, &generation, &n_ops)
 	}
 
@@ -162,7 +158,7 @@ func main() {
 		for {
 			t2 := time.Now()
 			var u2 [ULEN]byte
-			copy(u2[:], ram.ram[:])
+			copy(u2[:], ram[:])
 			//dump(log, generation, n_ops, &u2)
 			if generation != p_generation {
 				fmt.Println("\033c", generation, n_ops, generation-p_generation, n_ops-p_n_ops, float64(n_ops-p_n_ops)/t2.Sub(t).Seconds(), (n_ops-p_n_ops)/(generation-p_generation))
