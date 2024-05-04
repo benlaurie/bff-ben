@@ -85,7 +85,7 @@ func runner(cpu *CPUWithRAM, generation *uint64, n_ops *uint64) {
 		n := cpu.run(uint16(rand.Intn(ULEN)))
 		*n_ops += uint64(n)
 		t += n
-		for t > MUTATION_RATE {
+		for t > MUTATION_RATE && false {
 			//cpu.ram[rand.Intn(ULEN)] ^= uint8(1) << rand.Intn(8)
 			cpu.ram[rand.Intn(ULEN)] = uint8(rand.Intn(256))
 			t -= MUTATION_RATE
