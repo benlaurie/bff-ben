@@ -43,6 +43,8 @@ fyne.io/systray v1.10.1-0.20231115130155-104f5ef7839e h1:Hvs+kW2VwCzNToF3FmnIAzm
 fyne.io/systray v1.10.1-0.20231115130155-104f5ef7839e/go.mod h1:oM2AQqGJ1AMo4nNqZFYU8xYygSBZkW2hmdJ7n4yjedE=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/BurntSushi/xgb v0.0.0-20160522181843-27f122750802/go.mod h1:IVnqGOEym/WlBOVXweHU+Q+/VP0lqqI8lqeDx9IjBqo=
+github.com/GinjaNinja32/go-i8080 v0.0.0-20190423202006-84f286e61072 h1:1xOOu7B8h+48KE3jApcARSQFa2wLsX2stPSrc/1A7+w=
+github.com/GinjaNinja32/go-i8080 v0.0.0-20190423202006-84f286e61072/go.mod h1:uFmgLlO2FBLiWlepdMs6/wb4UhUW0EOAUmWVmGkoBqU=
 github.com/Krawabbel/go-8080 v0.0.0-20231029164547-08d36a34d0a3 h1:KfLOBh+7z57rCaDaqoFZ8h44lSM+tx8fXgsRKXgwH4Q=
 github.com/Krawabbel/go-8080 v0.0.0-20231029164547-08d36a34d0a3/go.mod h1:XAMs74LolDKNKX6GhnRCo8loDrs4rdXcmF4qw6cXmTI=
 github.com/antihax/optional v1.0.0/go.mod h1:uupD/76wgC+ih3iEmQUL+0Ugr19nfwCT1kdvxnR2qWY=

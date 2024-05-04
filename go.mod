@@ -37,9 +37,12 @@ require (
 )
 
 require (
+	github.com/GinjaNinja32/go-i8080 v0.0.0-20190423202006-84f286e61072
 	github.com/Krawabbel/go-8080 v0.0.0-20231029164547-08d36a34d0a3
 	github.com/crazy3lf/colorconv v1.2.0
 	github.com/google/go-cmp v0.5.9 // indirect
 	github.com/stretchr/testify v1.8.4 // indirect
 	pgregory.net/rand v1.0.2
 )
+
+replace github.com/GinjaNinja32/go-i8080 v0.0.0-20190423202006-84f286e61072 => /Users/benl/git-work/go-i8080
