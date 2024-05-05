@@ -64,12 +64,13 @@ func graphics(universe *[65536]uint8) {
 }
 */
 
-const OPS = "<>{}+-.,[]!?abcdefgtuvwxyzABCDEFZYXWVUT"
+// const OPS = "<>{}+-.,[]!?abcdefgtuvwxyzABCDEFZYXWVUT"
+const OPS = "<>{}+-.,[]"
 const SQRT_ULEN = 256
 const ULEN = SQRT_ULEN * SQRT_ULEN
 const SLEN = 1024
 const ILIMIT = 5_000
-const MUTATION_RATE = 50_000 // Higher is less mutation
+const MUTATION_RATE = 10_000 // Higher is less mutation
 const RUNNERS = 8
 const STRICT = true
 const SHOW_LEN = 8192
@@ -88,8 +89,11 @@ func sign_extend(a uint8) int8 {
 func run(program *[ULEN]uint8, pc int) int {
 	iterations := 0
 	head0 := pc
-	head1 := pc
-
+	head1 := pc + 12
+	/*
+	   copy := uint8(0)
+	   copy_set := false
+	*/
 OUTER:
 	for {
 		if iterations++; iterations > ILIMIT {
@@ -99,7 +103,6 @@ OUTER:
 		head1 = pmod(head1, ULEN)
 
 		op := program[pc]
-		pc = (pc + 1) % ULEN
 		switch op {
 		case '<':
 			head0 -= 1
@@ -115,12 +118,20 @@ OUTER:
 			program[head0]--
 		case '.':
 			program[head1] = program[head0]
+			/*
+				copy = program[head0]
+				copy_set = true
+			*/
 		case ',':
 			program[head0] = program[head1]
+			/*
+				if !copy_set {
+					break OUTER
+				}
+				program[head1] = copy
+				copy_set = false
+			*/
 		case '[':
-			if program[head0] != 0 {
-				break
-			}
 			npc := pmod(pc+1, ULEN)
 			count := 1
 			for npc != pc {
@@ -137,10 +148,11 @@ OUTER:
 			if npc == pc {
 				break OUTER
 			}
-		case ']':
-			if program[head0] == 0 {
+			if program[head0] != 0 {
 				break
 			}
+			pc = pmod(npc+1, ULEN)
+		case ']':
 			npc := pmod(pc-1, ULEN)
 			count := 1
 			for npc != pc {
@@ -157,34 +169,45 @@ OUTER:
 			if npc == pc {
 				break OUTER
 			}
+			if program[head0] == 0 {
+				break
+			}
 			pc = pmod(npc+1, ULEN)
-		case '!':
-			head0 = pc
-		case '?':
-			head1 = pc
-		case 'a':
-			head0 += 2
-		case 'A':
-			head1 += 2
-		case 'z':
-			head0 -= 2
-		case 'Z':
-			head1 -= 2
-
+			/*
+				case '!':
+					head0 = pc
+				case '?':
+					head1 = pc
+			*/
+			/*
+				case 'a':
+					head0 += 2
+				case 'A':
+					head1 += 2
+				case 'z':
+					head0 -= 2
+				case 'Z':
+					head1 -= 2
+			*/
 			/*
 				default:
 					switch {
 					case op >= 'a' && op <= 'g':
-						head0 += 1 << int(op-'a'+1)
+						head0 += 1 << int(op-'a')
 					case op >= 't' && op <= 'z':
-						head0 -= 256 >> int(op-'t'+1)
+						head0 -= 256 >> int(op-'t')
 					case op >= 'A' && op <= 'G':
-						head1 += 1 << int(op-'A'+1)
+						head1 += 1 << int(op-'A')
 					case op >= 'T' && op <= 'Z':
-						head1 -= 256 >> int(op-'T'+1)
+						head1 -= 256 >> int(op-'T')
+					default:
+						iterations--
 					}
 			*/
+			//		default:
+			//			iterations--
 		}
+		pc = (pc + 1) % ULEN
 	}
 	return iterations
 }
@@ -248,7 +271,9 @@ func showngrams(universe *[ULEN]uint8, n int) {
 }
 
 func mutate(program *[ULEN]uint8) {
-	program[rand.Intn(ULEN)] = uint8(rand.Intn(256))
+	//program[rand.Intn(ULEN)] = uint8(OPS[rand.Intn(12)])
+	program[rand.Intn(ULEN)] = uint8(OPS[rand.Intn(len(OPS))])
+	//program[rand.Intn(ULEN)] = uint8(rand.Intn(256))
 	//program[rand.Intn(ULEN)] = uint8(rand.Intn(MAX_OP + 1))
 	/*
 		switch rand.Intn(5) {
@@ -307,7 +332,8 @@ func main() {
 	for i := 0; i < ULEN; i++ {
 		//universe[i] = 0x3f
 		//universe[i] = uint8(rand.Intn(MAX_OP + 1))
-		universe[i] = uint8(rand.Intn(256))
+		//universe[i] = uint8(rand.Intn(256))
+		universe[i] = 0
 		//mutate(&universe)
 	}
 
